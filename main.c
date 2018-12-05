@@ -2,6 +2,18 @@
 
 APPLICATION_START_WITH(Main $in TonightMode)
 
+void beep(int number)
+{
+	Writer out = new Writer(Tonight.Std.Console.Output);
+	int i;
+	
+	for(i = 0; i < number; i++)
+	{
+		out.text("\a");
+		Tonight.sleep(500);
+	}
+}
+
 int Main(string ARRAY args)
 {
 	Writer screen = new Writer(Tonight.Std.Console.Output);
@@ -21,11 +33,20 @@ int Main(string ARRAY args)
 	while(true)
 	{
 		int sleep = 10;
+		int repeat = 5;
+		int n = 0;
+		
+		int timeout = 1000;
+		int warning = 500;
+		double tolerance = 0.5;
+		
+		int netPackLost = $Empty(int);
+		double netRespTime = $Empty(double);
+		double netLostProp = $Empty(double);
 		
 		try
 		{
 			file f = $Empty(file);
-			int timeout = 1000;
 			
 			using(f $in File.open(configFile, File.Mode.read))
 			{
@@ -44,6 +65,21 @@ int Main(string ARRAY args)
 						sleep = Tonight.Convert.toInt(values[1]);
 					}
 					
+					if(!String.compare(values[0], "repeat"))
+					{
+						repeat = Tonight.Convert.toInt(values[1]);
+					}
+					
+					if(!String.compare(values[0], "warning"))
+					{
+						warning = Tonight.Convert.toInt(values[1]);
+					}
+					
+					if(!String.compare(values[0], "tolerance"))
+					{
+						tolerance = 1.0 - (Tonight.Convert.toDouble(values[1]) / 100.0);
+					}
+					
 					Array.free(values);
 					String.free(l);
 				}
@@ -55,11 +91,15 @@ int Main(string ARRAY args)
 			{
 				while(!File.end(f))
 				{
-					int i;
+					int i, lost = $Empty(int);
+					double media = $Empty(double);
+					
 					string l = read.nextLine(f);
 					string ARRAY values = String.split(l, ": ");
 					string ip = $Empty(string);
 					string name = $Empty(string);
+					
+					n++;
 					
 					forindex(i $in values)
 					{
@@ -74,24 +114,86 @@ int Main(string ARRAY args)
 						}
 					}
 					
-					ping_t* ret = ping(ip, timeout);
+					paint.text(7);
+					screen.println(name, " (", ip, ")", $end);
+					screen.textln("\tDisparo de pacotes:");
+					
+					for(i = 0; i < repeat; i++)
+					{
+						ping_t* ret = ping(ip, timeout);
+						
+						paint.text(7);
+						screen.print("\t", $i(i + 1), ": ", $end);
+						
+						if(ret)
+						{
+							if(ret->RoundTripTime < warning)
+							{
+								paint.text(2);
+							}
+							else
+							{
+								paint.text(6);
+							}
+							
+							screen.print(
+								$i(ret->RoundTripTime),
+								" ms",
+								$end
+							);
+							
+							media += ret->RoundTripTime;
+							Memory.free(ret);
+						}
+						else
+						{
+							paint.text(4);
+							screen.text("Perdido");
+							lost++;
+						}
+					}
+					
+					screen.nl();
+					String.free(l);
 					
 					paint.text(7);
-					screen.print(name, " (", ip, ") - ", $end);
+					netPackLost += lost;
+					screen.text("\tPerdas de pacotes: ");
 					
-					if(ret)
+					if(lost == 0)
 					{
 						paint.text(2);
-						screen.println("Tempo de resposta: ", $i(ret->RoundTripTime), " ms", $end);
-						Memory.free(ret);
+					}
+					else if(lost < tolerance * repeat)
+					{
+						paint.text(1);
+						beep(1);
 					}
 					else
 					{
 						paint.text(4);
-						screen.println("\aErro ao executar função ping(): ", $i(GetLastError()), $end);
+						beep(3);
 					}
 					
-					String.free(l);
+					screen.textln($i(lost));
+					
+					paint.text(7);
+					screen.text("\tTempo médio de resposta: ");
+					
+					media /= repeat;
+					netRespTime += media;
+					
+					if(media < warning)
+					{
+						paint.text(2);
+					}
+					else
+					{
+						paint.text(6);
+					}
+					
+					screen.println($d(media), " ms", $end);
+					screen.nl();
 				}
 				
 				File.close(f);
@@ -102,6 +204,58 @@ int Main(string ARRAY args)
 			Exception e = getException();
 			screen.printargln(Error(e), Message(e), $end);
 		}
+		
+		screen.nl();
+		
+		netRespTime /= n;
+		paint.text(7);
+		screen.text("Tempo médio de resposta da rede: ");
+		
+		if(netRespTime < warning)
+		{
+			paint.text(2);
+		}
+		else
+		{
+			paint.text(6);
+			beep(1);
+		}
+		
+		screen.println($d(netRespTime), " milisegundos", $end);
+		
+		paint.text(7);
+		screen.text("Perda total de pacotes: ");
+		netLostProp = ((double)netPackLost / (double)(n * repeat)) * 100.0;
+		
+		if(netLostProp == 0)
+		{
+			paint.text(2);
+		}
+		else if(netLostProp < (1 - tolerance) * 100)
+		{
+			paint.text(1);
+		}
+		else
+		{
+			int i;
+			paint.text(4);
+			
+			for(i = 0; i < 3; i++)
+			{
+				beep(3);
+				Tonight.sleep(1000);
+			}
+		}
+		
+		screen.println(
+			$i(netPackLost),
+			"/",
+			$i(n * repeat),
+			" (",
+			$d(netLostProp),
+			"%)",
+			$end
+		);
 		
 		Tonight.sleep(sleep * 1000);
 		Tonight.clearScreen();

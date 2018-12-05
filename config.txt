@@ -1,2 +1,5 @@
-sleep:10
+sleep:300
 timeout:1000
+repeat:5
+warning:3
+tolerance:25
