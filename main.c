@@ -36,6 +36,13 @@ int Main(string ARRAY args)
 		int repeat = 5;
 		int n = 0;
 		
+		bool echoPing = true;
+		bool echoLost = true;
+		bool echoTime = true;
+		bool echoStatus = true;
+		
+		int arr_status[] = {0, 0, 0};
+		
 		int timeout = 1000;
 		int warning = 500;
 		double tolerance = 0.5;
@@ -47,141 +54,198 @@ int Main(string ARRAY args)
 		try
 		{
 			file f = $Empty(file);
+			int i = $Empty(int);
 			
-			using(f $in File.open(configFile, File.Mode.read))
+			using(f $as File.open(configFile, File.Mode.read) $with File.close)
 			{
 				while(!File.end(f))
 				{
-					string l = read.nextLine(f);
-					string ARRAY values = String.split(l, ": ");
+					string l = NULL;
+					string ARRAY values = NULL;
 					
-					if(!String.compare(values[0], "timeout"))
+					using(l $as read.nextLine(f) $with String.free)
 					{
-						timeout = Tonight.Convert.toInt(values[1]);
+						using(values $as String.split(l, ": ") $with Array.free)
+						{
+							Conversor convert = $Empty(Conversor);
+							
+							using(convert $as Tonight.Convert)
+							{
+								if(!String.compare(values[0], "timeout"))
+								{
+									timeout = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "sleep"))
+								{
+									sleep = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "repeat"))
+								{
+									repeat = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "warning"))
+								{
+									warning = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "tolerance"))
+								{
+									tolerance = 1.0 - (convert.toDouble(values[1]) / 100.0);
+								}
+								
+								if(!String.compare(values[0], "echo-ping"))
+								{
+									echoPing = convert.toBool(values[1]);
+								}
+								
+								if(!String.compare(values[0], "echo-lost"))
+								{
+									echoLost = convert.toBool(values[1]);
+								}
+								
+								if(!String.compare(values[0], "echo-time"))
+								{
+									echoTime = convert.toBool(values[1]);
+								}
+								
+								if(!String.compare(values[0], "echo-status"))
+								{
+									echoStatus = convert.toBool(values[1]);
+								}
+							}
+						}
 					}
-					
-					if(!String.compare(values[0], "sleep"))
-					{
-						sleep = Tonight.Convert.toInt(values[1]);
-					}
-					
-					if(!String.compare(values[0], "repeat"))
-					{
-						repeat = Tonight.Convert.toInt(values[1]);
-					}
-					
-					if(!String.compare(values[0], "warning"))
-					{
-						warning = Tonight.Convert.toInt(values[1]);
-					}
-					
-					if(!String.compare(values[0], "tolerance"))
-					{
-						tolerance = 1.0 - (Tonight.Convert.toDouble(values[1]) / 100.0);
-					}
-					
-					Array.free(values);
-					String.free(l);
 				}
-				
-				File.close(f);
 			}
 			
-			using(f $in File.open(ipFile, File.Mode.read))
+			using(f $as File.open(ipFile, File.Mode.read) $with File.close)
 			{
 				while(!File.end(f))
 				{
 					int i, lost = $Empty(int);
+					int status = 0;
 					double media = $Empty(double);
+					string l = $Empty(string);
 					
-					string l = read.nextLine(f);
-					string ARRAY values = String.split(l, ": ");
-					string ip = $Empty(string);
-					string name = $Empty(string);
-					
-					n++;
-					
-					forindex(i $in values)
+					using(l $as read.nextLine(f) $with String.free)
 					{
-						if(!String.compare(values[i], "ip"))
-						{
-							ip = values[i + 1];
-						}
+						string ARRAY values = NULL;
 						
-						if(!String.compare(values[i], "name"))
+						using(values $as String.split(l, ": ") $with Array.free)
 						{
-							name = values[i + 1];
+							string ip = $Empty(string);
+							string name = $Empty(string);
+							
+							n++;
+							
+							forindex(i $in values)
+							{
+								if(!String.compare(values[i], "ip"))
+								{
+									ip = values[i + 1];
+								}
+								
+								if(!String.compare(values[i], "name"))
+								{
+									name = values[i + 1];
+								}
+							}
+							
+							paint.text(7);
+							screen.println(name, " (", ip, ")", $end);
+							
+							if(echoPing)
+							{
+								screen.textln("\tDisparo de pacotes:");
+							}
+							
+							for(i = 0; i < repeat; i++)
+							{
+								ping_t* ret = NULL;
+								
+								using(ret $as ping(ip, timeout) $with Memory.free)
+								{
+									if(echoPing)
+									{
+										paint.text(7);
+										screen.print("\t", $i(i + 1), ": ", $end);
+									}
+									
+									if(ret)
+									{
+										if(ret->RoundTripTime < warning)
+										{
+											paint.text(2);
+										}
+										else
+										{
+											paint.text(6);
+										}
+										
+										if(echoPing)
+										{
+											screen.print(
+												$i(ret->RoundTripTime),
+												" ms",
+												$end
+											);
+										}
+										
+										media += ret->RoundTripTime;
+									}
+									else
+									{
+										if(echoPing)
+										{
+											paint.text(4);
+											screen.text("Perdido");
+										}
+										lost++;
+									}
+								}
+							}
 						}
 					}
 					
-					paint.text(7);
-					screen.println(name, " (", ip, ")", $end);
-					screen.textln("\tDisparo de pacotes:");
-					
-					for(i = 0; i < repeat; i++)
+					if(echoPing)
 					{
-						ping_t* ret = ping(ip, timeout);
+						screen.nl();
+					}
+					
+					paint.text(7);
+					
+					if(echoLost)
+					{
+						screen.text("\tPerdas de pacotes: ");
 						
-						paint.text(7);
-						screen.print("\t", $i(i + 1), ": ", $end);
-						
-						if(ret)
+						if(lost == 0)
 						{
-							if(ret->RoundTripTime < warning)
-							{
-								paint.text(2);
-							}
-							else
-							{
-								paint.text(6);
-							}
-							
-							screen.print(
-								$i(ret->RoundTripTime),
-								" ms",
-								$end
-							);
-							
-							media += ret->RoundTripTime;
-							Memory.free(ret);
+							paint.text(2);
+						}
+						else if(lost < tolerance * repeat)
+						{
+							paint.text(1);
+							beep(1);
 						}
 						else
 						{
 							paint.text(4);
-							screen.text("Perdido");
-							lost++;
+							beep(3);
 						}
+						
+						screen.textln($i(lost));
 					}
 					
-					screen.nl();
-					String.free(l);
-					
-					paint.text(7);
-					netPackLost += lost;
-					screen.text("\tPerdas de pacotes: ");
-					
-					if(lost == 0)
+					if(echoTime)
 					{
-						paint.text(2);
+						paint.text(7);
+						screen.text("\tTempo médio de resposta: ");
 					}
-					else if(lost < tolerance * repeat)
-					{
-						paint.text(1);
-						beep(1);
-					}
-					else
-					{
-						paint.text(4);
-						beep(3);
-					}
-					
-					screen.textln($i(lost));
-					
-					paint.text(7);
-					screen.text("\tTempo médio de resposta: ");
 					
 					media /= repeat;
-					netRespTime += media;
 					
 					if(media < warning)
 					{
@@ -192,11 +256,75 @@ int Main(string ARRAY args)
 						paint.text(6);
 					}
 					
-					screen.println($d(media), " ms", $end);
+					if(echoTime)
+					{
+						screen.println($d(media), " ms", $end);
+					}
+					
+					if(lost < tolerance * repeat)
+					{
+						status += 2;
+					}
+					
+					if(media < warning)
+					{
+						status++;
+					}
+					
+					if(status >= 2)
+					{
+						netRespTime += media;
+						netPackLost += lost;
+					}
+					
+					if(echoStatus)
+					{
+						paint.text(7);
+						screen.text("\tStatus: ");
+					}
+					
+					switch(status)
+					{
+						case 0:
+						case 1:
+							if(echoStatus)
+							{
+								paint.text(4);
+								screen.textln("Inativo");
+							}
+							arr_status[0]++;
+							break;
+							
+						case 2:
+							if(echoStatus)
+							{
+								paint.text(1);
+								screen.textln("Instável");
+							}
+							arr_status[1]++;
+							arr_status[2]++;
+							break;
+							
+						case 3:
+							if(echoStatus)
+							{
+								paint.text(2);
+								screen.textln("Ativo");
+							}
+							arr_status[2]++;
+							break;
+							
+						default:
+							if(echoStatus)
+							{
+								paint.text(6);
+								screen.println($i(status), " - Não identificado", $end);
+							}
+							break;
+					}
+					
 					screen.nl();
 				}
-				
-				File.close(f);
 			}
 		}
 		catch(GenericException)
@@ -224,7 +352,7 @@ int Main(string ARRAY args)
 		screen.println($d(netRespTime), " milisegundos", $end);
 		
 		paint.text(7);
-		screen.text("Perda total de pacotes: ");
+		screen.text("Perda de pacotes em hosts ativos: ");
 		netLostProp = ((double)netPackLost / (double)(n * repeat)) * 100.0;
 		
 		if(netLostProp == 0)
@@ -256,6 +384,13 @@ int Main(string ARRAY args)
 			"%)",
 			$end
 		);
+		
+		paint.text(2);
+		screen.println("Hosts ativos: ", $i(arr_status[2]), $end);
+		paint.text(1);
+		screen.println("Hosts instáveis: ", $i(arr_status[1]), $end);
+		paint.text(4);
+		screen.println("Hosts inativos: ", $i(arr_status[0]), $end);
 		
 		Tonight.sleep(sleep * 1000);
 		Tonight.clearScreen();
