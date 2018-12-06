@@ -2,6 +2,14 @@
 
 APPLICATION_START_WITH(Main $in TonightMode)
 
+const struct{
+	int danger;
+	int warning;
+	int regular;
+	int good;
+	int normal;
+}Index = {0, 1, 2, 3, 4};
+
 void beep(int number)
 {
 	Writer out = new Writer(Tonight.Std.Console.Output);
@@ -35,13 +43,17 @@ int Main(string ARRAY args)
 		int sleep = 10;
 		int repeat = 5;
 		int n = 0;
+		int i;
 		
 		bool echoPing = true;
 		bool echoLost = true;
 		bool echoTime = true;
 		bool echoStatus = true;
 		
-		int arr_status[] = {0, 0, 0};
+		int arr_status[] = {0, 0, 0, 0};
+		int status_color[] = {4, 1, 6, 2, 7};
+		string name_status_s[] = {"Inativo", "Instavel", "Regular", "Bom"};
+		string name_status_p[] = {"inativos", "instáveis", "regulares", "bons"};
 		
 		int timeout = 1000;
 		int warning = 500;
@@ -115,6 +127,31 @@ int Main(string ARRAY args)
 								{
 									echoStatus = convert.toBool(values[1]);
 								}
+								
+								if(!String.compare(values[0], "color-danger"))
+								{
+									status_color[Index.danger] = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "color-warning"))
+								{
+									status_color[Index.warning] = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "color-regular"))
+								{
+									status_color[Index.regular] = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "color-good"))
+								{
+									status_color[Index.good] = convert.toInt(values[1]);
+								}
+								
+								if(!String.compare(values[0], "color-normal"))
+								{
+									status_color[Index.normal] = convert.toInt(values[1]);
+								}
 							}
 						}
 					}
@@ -154,7 +191,7 @@ int Main(string ARRAY args)
 								}
 							}
 							
-							paint.text(7);
+							paint.text(status_color[Index.normal]);
 							screen.println(name, " (", ip, ")", $end);
 							
 							if(echoPing)
@@ -170,7 +207,7 @@ int Main(string ARRAY args)
 								{
 									if(echoPing)
 									{
-										paint.text(7);
+										paint.text(status_color[Index.normal]);
 										screen.print("\t", $i(i + 1), ": ", $end);
 									}
 									
@@ -178,11 +215,11 @@ int Main(string ARRAY args)
 									{
 										if(ret->RoundTripTime < warning)
 										{
-											paint.text(2);
+											paint.text(status_color[Index.good]);
 										}
 										else
 										{
-											paint.text(6);
+											paint.text(status_color[Index.regular]);
 										}
 										
 										if(echoPing)
@@ -200,7 +237,7 @@ int Main(string ARRAY args)
 									{
 										if(echoPing)
 										{
-											paint.text(4);
+											paint.text(status_color[Index.danger]);
 											screen.text("Perdido");
 										}
 										lost++;
@@ -215,7 +252,7 @@ int Main(string ARRAY args)
 						screen.nl();
 					}
 					
-					paint.text(7);
+					paint.text(status_color[4]);
 					
 					if(echoLost)
 					{
@@ -223,16 +260,16 @@ int Main(string ARRAY args)
 						
 						if(lost == 0)
 						{
-							paint.text(2);
+							paint.text(status_color[Index.good]);
 						}
 						else if(lost < tolerance * repeat)
 						{
-							paint.text(1);
+							paint.text(status_color[Index.warning]);
 							beep(1);
 						}
 						else
 						{
-							paint.text(4);
+							paint.text(status_color[Index.danger]);
 							beep(3);
 						}
 						
@@ -241,7 +278,7 @@ int Main(string ARRAY args)
 					
 					if(echoTime)
 					{
-						paint.text(7);
+						paint.text(status_color[Index.normal]);
 						screen.text("\tTempo médio de resposta: ");
 					}
 					
@@ -249,11 +286,11 @@ int Main(string ARRAY args)
 					
 					if(media < warning)
 					{
-						paint.text(2);
+						paint.text(status_color[Index.good]);
 					}
 					else
 					{
-						paint.text(6);
+						paint.text(status_color[Index.regular]);
 					}
 					
 					if(echoTime)
@@ -261,17 +298,24 @@ int Main(string ARRAY args)
 						screen.println($d(media), " ms", $end);
 					}
 					
-					if(lost < tolerance * repeat)
+					if(!lost and media < warning)
 					{
-						status += 2;
+						status = Index.good;
+					}
+					else if(!lost)
+					{
+						status = Index.regular;
+					}
+					else if(lost < tolerance * repeat)
+					{
+						status = Index.warning;
+					}
+					else
+					{
+						status = Index.danger;
 					}
 					
-					if(media < warning)
-					{
-						status++;
-					}
-					
-					if(status >= 2)
+					if(status >= Index.regular)
 					{
 						netRespTime += media;
 						netPackLost += lost;
@@ -279,50 +323,16 @@ int Main(string ARRAY args)
 					
 					if(echoStatus)
 					{
-						paint.text(7);
+						paint.text(status_color[Index.normal]);
 						screen.text("\tStatus: ");
 					}
 					
-					switch(status)
+					if(echoStatus)
 					{
-						case 0:
-						case 1:
-							if(echoStatus)
-							{
-								paint.text(4);
-								screen.textln("Inativo");
-							}
-							arr_status[0]++;
-							break;
-							
-						case 2:
-							if(echoStatus)
-							{
-								paint.text(1);
-								screen.textln("Instável");
-							}
-							arr_status[1]++;
-							arr_status[2]++;
-							break;
-							
-						case 3:
-							if(echoStatus)
-							{
-								paint.text(2);
-								screen.textln("Ativo");
-							}
-							arr_status[2]++;
-							break;
-							
-						default:
-							if(echoStatus)
-							{
-								paint.text(6);
-								screen.println($i(status), " - Não identificado", $end);
-							}
-							break;
+						paint.text(status_color[status]);
+						screen.textln(name_status_s[status]);
 					}
-					
+					arr_status[status]++;
 					screen.nl();
 				}
 			}
@@ -336,37 +346,37 @@ int Main(string ARRAY args)
 		screen.nl();
 		
 		netRespTime /= n;
-		paint.text(7);
+		paint.text(status_color[Index.normal]);
 		screen.text("Tempo médio de resposta da rede: ");
 		
 		if(netRespTime < warning)
 		{
-			paint.text(2);
+			paint.text(status_color[Index.good]);
 		}
 		else
 		{
-			paint.text(6);
+			paint.text(status_color[Index.regular]);
 			beep(1);
 		}
 		
 		screen.println($d(netRespTime), " milisegundos", $end);
 		
-		paint.text(7);
-		screen.text("Perda de pacotes em hosts ativos: ");
+		paint.text(status_color[Index.normal]);
+		screen.print("Perda de pacotes em hosts ", name_status_p[Index.warning], ": ", $end);
 		netLostProp = ((double)netPackLost / (double)(n * repeat)) * 100.0;
 		
 		if(netLostProp == 0)
 		{
-			paint.text(2);
+			paint.text(status_color[Index.good]);
 		}
 		else if(netLostProp < (1 - tolerance) * 100)
 		{
-			paint.text(1);
+			paint.text(status_color[Index.warning]);
 		}
 		else
 		{
 			int i;
-			paint.text(4);
+			paint.text(status_color[Index.danger]);
 			
 			for(i = 0; i < 3; i++)
 			{
@@ -385,12 +395,16 @@ int Main(string ARRAY args)
 			$end
 		);
 		
-		paint.text(2);
-		screen.println("Hosts ativos: ", $i(arr_status[2]), $end);
-		paint.text(1);
-		screen.println("Hosts instáveis: ", $i(arr_status[1]), $end);
-		paint.text(4);
-		screen.println("Hosts inativos: ", $i(arr_status[0]), $end);
+		paint.text(status_color[Index.normal]);
+		screen.nl();
+		screen.textln("Classificação por status:");
+		screen.nl();
+		
+		for(i = (sizeof arr_status / sizeof(int) - 1); i >= 0; i--)
+		{
+			paint.text(status_color[i]);
+			screen.println("\t[", name_status_p[i], "]: ", $i(arr_status[i]), $end);
+		}
 		
 		Tonight.sleep(sleep * 1000);
 		Tonight.clearScreen();
