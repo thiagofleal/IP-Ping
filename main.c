@@ -1,7 +1,7 @@
 #include "ping.h"
 #include <Tonight\list.h>
 
-APPLICATION_START_WITH(Main $in TonightMode)
+APPLICATION_START_WITH(Main $in TonightMode $as static)
 
 typedef struct{
 	string ip;
@@ -65,17 +65,19 @@ void free_IP_status(IP_status* point)
 	}
 }
 
-void free_list_members(object list, P_void free)
+void free_list(object list)
 {
 	int i;
 	
 	for(i = 0; i < $(List)->size(list); i++)
 	{
-		free($(List)->get(list, i));
+		free_IP_status($(List)->get(list, i));
 	}
+	
+	delete(list);
 }
 
-int Main(string ARRAY args)
+static int Main(string ARRAY args)
 {
 	Writer screen = new Writer(Tonight.Std.Console.Output);
 	Scanner read = new Scanner(Tonight.Std.File.Input);
@@ -96,6 +98,7 @@ int Main(string ARRAY args)
 		int sleep = 10;
 		int repeat = 5;
 		int n = 0;
+		int count = 0;
 		int i;
 		
 		bool echoPing = true;
@@ -123,7 +126,7 @@ int Main(string ARRAY args)
 		{
 			object list = NULL;
 			
-			using(list $as new Object(List.class) $with delete)
+			using(list $as new Object(List.class) $with free_list)
 			{
 				file f = $Empty(file);
 				int i = $Empty(int);
@@ -323,7 +326,7 @@ int Main(string ARRAY args)
 											if(echoPing)
 											{
 												paint.text(status_color[Index.danger]);
-												screen.text("Perdido");
+												screen.text("-");
 											}
 											lost++;
 										}
@@ -400,10 +403,11 @@ int Main(string ARRAY args)
 							status = Index.danger;
 						}
 						
-						if(status >= Index.regular)
+						if(status >= Index.warning)
 						{
 							netRespTime += media;
 							netPackLost += lost;
+							count++;
 						}
 						
 						$(List) -> add(list, new_IP_status(ip, name, status));
@@ -435,7 +439,7 @@ int Main(string ARRAY args)
 					screen.println("\t[", name_status_p[i], "]: ", $i(arr_status[i]), $end);
 				}
 				
-				for(i = 0; i < (sizeof arr_status / sizeof(int)); i++)
+				for(i = (sizeof arr_status / sizeof(int) - 1); i >= 0; i--)
 				{
 					if(list_status[i])
 					{
@@ -466,13 +470,11 @@ int Main(string ARRAY args)
 						}
 					}
 				}
-				
-				free_list_members(list, free_IP_status);
 			}
 			
 			screen.nl();
 			
-			netRespTime /= n;
+			netRespTime /= count;
 			paint.text(status_color[Index.normal]);
 			screen.text("Tempo médio de resposta da rede: ");
 			
@@ -490,7 +492,7 @@ int Main(string ARRAY args)
 			
 			paint.text(status_color[Index.normal]);
 			screen.print("Perda de pacotes em hosts ", name_status_p[Index.warning], ": ", $end);
-			netLostProp = ((double)netPackLost / (double)(n * repeat)) * 100.0;
+			netLostProp = ((double)netPackLost / (double)(count * repeat)) * 100.0;
 			
 			if(netLostProp == 0)
 			{
@@ -515,7 +517,7 @@ int Main(string ARRAY args)
 			screen.println(
 				$i(netPackLost),
 				"/",
-				$i(n * repeat),
+				$i(count * repeat),
 				" (",
 				$d(netLostProp),
 				"%)",
@@ -532,5 +534,5 @@ int Main(string ARRAY args)
 		}
 	}
 	
-	return 0;
+	return Exit.Success;
 }
