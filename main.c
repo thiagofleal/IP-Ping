@@ -270,71 +270,73 @@ static int Main(string ARRAY args)
 								{
 									if(!String.compare(values[i], "ip"))
 									{
-										ip = values[i + 1];
+										ip = String.copy(values[i + 1]);
 									}
 									
 									if(!String.compare(values[i], "name"))
 									{
-										name = values[i + 1];
+										name = String.copy(values[i + 1]);
 									}
-								}
-								
-								paint.text(status_color[Index.normal]);
-								screen.println(name, " (", ip, ")", $end);
-								
-								if(echoPing)
-								{
-									screen.textln("\tDisparo de pacotes:");
-								}
-								
-								for(i = 0; i < repeat; i++)
-								{
-									ping_t* ret = NULL;
 									
-									using(ret $as ping(ip, timeout) $with Memory.free)
+									String.free(values[i]);
+								}
+							}
+						
+							paint.text(status_color[Index.normal]);
+							screen.println(name, " (", ip, ")", $end);
+							
+							if(echoPing)
+							{
+								screen.textln("\tDisparo de pacotes:");
+							}
+							
+							for(i = 0; i < repeat; i++)
+							{
+								ping_t* ret = NULL;
+								
+								using(ret $as ping(ip, timeout) $with Memory.free)
+								{
+									if(echoPing)
 									{
-										if(echoPing)
+										paint.text(status_color[Index.normal]);
+										screen.print("\t", $i(i + 1), ": ", $end);
+									}
+									
+									if(ret)
+									{
+										if(ret->RoundTripTime < warning)
 										{
-											paint.text(status_color[Index.normal]);
-											screen.print("\t", $i(i + 1), ": ", $end);
-										}
-										
-										if(ret)
-										{
-											if(ret->RoundTripTime < warning)
-											{
-												paint.text(status_color[Index.good]);
-											}
-											else
-											{
-												paint.text(status_color[Index.regular]);
-											}
-											
-											if(echoPing)
-											{
-												screen.print(
-													$i(ret->RoundTripTime),
-													" ms",
-													$end
-												);
-											}
-											
-											media += ret->RoundTripTime;
+											paint.text(status_color[Index.good]);
 										}
 										else
 										{
-											if(echoPing)
-											{
-												paint.text(status_color[Index.danger]);
-												screen.text("-");
-											}
-											lost++;
+											paint.text(status_color[Index.regular]);
 										}
+										
+										if(echoPing)
+										{
+											screen.print(
+												$i(ret->RoundTripTime),
+												" ms",
+												$end
+											);
+										}
+										
+										media += ret->RoundTripTime;
+									}
+									else
+									{
+										if(echoPing)
+										{
+											paint.text(status_color[Index.danger]);
+											screen.text("-");
+										}
+										lost++;
 									}
 								}
 							}
 						}
-						
+					
 						if(echoPing)
 						{
 							screen.nl();
