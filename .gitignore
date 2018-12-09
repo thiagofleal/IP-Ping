@@ -7,3 +7,5 @@
 *.a
 *.lib
 *.exe
+*.csv
+*.txt

@@ -1,13 +1,8 @@
-#include "ping.h"
+#include <Tonight\tonight.h>
 #include <Tonight\list.h>
+#include "ping.h"
 
 APPLICATION_START_WITH(Main $in TonightMode $as static)
-
-typedef struct{
-	string ip;
-	string name;
-	int status;
-}IP_status;
 
 const struct{
 	int danger;
@@ -17,74 +12,17 @@ const struct{
 	int normal;
 }Index = {0, 1, 2, 3, 4};
 
-void beep(int number)
-{
-	Writer out = new Writer(Tonight.Std.Console.Output);
-	int i;
-	
-	for(i = 0; i < number; i++)
-	{
-		out.text("\a");
-		Tonight.sleep(500);
-	}
-}
-
-void wait_beep(bool active)
-{
-	if(active)
-	{
-		while(!Tonight.pressKey())
-		{
-			beep(3);
-			Tonight.sleep(1000);
-		}
-		
-		while(Tonight.pressKey())
-		{
-			Tonight.getKey();
-		}
-	}
-}
-
-IP_status* new_IP_status(string ip, string name, int status)
-{
-	IP_status* _new = Memory.alloc(sizeof(IP_status));
-	_new->ip = String.copy(ip);
-	_new->name = String.copy(name);
-	_new->status = status;
-	return _new;
-}
-
-void free_IP_status(IP_status* point)
-{
-	if(point)
-	{
-		String.free(point->ip);
-		String.free(point->name);
-		Memory.free(point);
-	}
-}
-
-void free_list(object list)
-{
-	int i;
-	
-	for(i = 0; i < $(List)->size(list); i++)
-	{
-		free_IP_status($(List)->get(list, i));
-	}
-	
-	delete(list);
-}
-
 static int Main(string ARRAY args)
 {
 	Writer screen = new Writer(Tonight.Std.Console.Output);
+	Writer write = new Writer(Tonight.Std.File.Output);
 	Scanner read = new Scanner(Tonight.Std.File.Input);
 	Painter paint = new Painter(Tonight.Resources.Color);
+	Timer now = new Timer(Tonight.Std.TimeNow);
 	
 	string ipFile = "ping.txt";
 	string configFile = "config.txt";
+	string logFile = "log.csv";
 	struct Locale locale;
 	
 	using(locale $as Tonight.Locale)
@@ -97,9 +35,8 @@ static int Main(string ARRAY args)
 	{
 		int sleep = 10;
 		int repeat = 5;
-		int n = 0;
+		int n = 0, i;
 		int count = 0;
-		int i;
 		
 		bool echoPing = true;
 		bool echoLost = true;
@@ -126,348 +63,382 @@ static int Main(string ARRAY args)
 		{
 			object list = NULL;
 			
-			using(list $as new Object(List.class) $with free_list)
+			using(list $as new Object(List.class) $with delete)
 			{
+				file log = $Empty(file);
 				file f = $Empty(file);
 				int i = $Empty(int);
 				
-				using(f $as File.open(configFile, File.Mode.read) $with File.close)
+				$(list $as List).setFreeCallBack((P_freeCallBack)free_IP_status);
+				
+				using(log $as File.open(logFile, File.Mode.append) $with File.close)
 				{
-					while(!File.end(f))
+					write.println(
+						log,
+						"Data:;",
+						$F("%02i/%02i/%i",
+							now.day_month(),
+							now.month(),
+							now.year()
+						),
+						";Horário:;",
+						$F("%02i:%02i:%02i",
+							now.hours(),
+							now.minutes(),
+							now.seconds()
+						),
+						";",
+						$end
+					);
+					
+					using(f $as File.open(configFile, File.Mode.read) $with File.close)
 					{
-						string l = NULL;
-						string ARRAY values = NULL;
-						
-						using(l $as read.nextLine(f) $with String.free)
+						while(!File.end(f))
 						{
-							using(values $as String.split(l, ": ") $with Array.free)
+							string l = NULL;
+							string ARRAY values = NULL;
+							
+							using(l $as read.nextLine(f) $with String.free)
 							{
-								Conversor convert = $Empty(Conversor);
-								
-								using(convert $as Tonight.Convert)
+								using(values $as String.split(l, ": ") $with Array.free)
 								{
-									if(!String.compare(values[0], "timeout"))
-									{
-										timeout = convert.toInt(values[1]);
-									}
+									Conversor convert = $Empty(Conversor);
 									
-									if(!String.compare(values[0], "sleep"))
+									using(convert $as Tonight.Convert)
 									{
-										sleep = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "repeat"))
-									{
-										repeat = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "warning"))
-									{
-										warning = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "tolerance"))
-									{
-										tolerance = 1.0 - (convert.toDouble(values[1]) / 100.0);
-									}
-									
-									if(!String.compare(values[0], "echo-ping"))
-									{
-										echoPing = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "echo-lost"))
-									{
-										echoLost = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "echo-time"))
-									{
-										echoTime = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "echo-status"))
-									{
-										echoStatus = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "color-danger"))
-									{
-										status_color[Index.danger] = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "color-warning"))
-									{
-										status_color[Index.warning] = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "color-regular"))
-									{
-										status_color[Index.regular] = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "color-good"))
-									{
-										status_color[Index.good] = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "color-normal"))
-									{
-										status_color[Index.normal] = convert.toInt(values[1]);
-									}
-									
-									if(!String.compare(values[0], "list-danger"))
-									{
-										list_status[Index.danger] = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "list-warning"))
-									{
-										list_status[Index.warning] = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "list-regular"))
-									{
-										list_status[Index.regular] = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "list-good"))
-									{
-										list_status[Index.good] = convert.toBool(values[1]);
-									}
-									
-									if(!String.compare(values[0], "beep"))
-									{
-										beeping = convert.toBool(values[1]);
+										if(!String.compare(values[0], "timeout"))
+										{
+											timeout = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "sleep"))
+										{
+											sleep = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "repeat"))
+										{
+											repeat = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "warning"))
+										{
+											warning = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "tolerance"))
+										{
+											tolerance = 1.0 - (convert.toDouble(values[1]) / 100.0);
+										}
+										
+										if(!String.compare(values[0], "echo-ping"))
+										{
+											echoPing = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "echo-lost"))
+										{
+											echoLost = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "echo-time"))
+										{
+											echoTime = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "echo-status"))
+										{
+											echoStatus = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "color-danger"))
+										{
+											status_color[Index.danger] = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "color-warning"))
+										{
+											status_color[Index.warning] = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "color-regular"))
+										{
+											status_color[Index.regular] = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "color-good"))
+										{
+											status_color[Index.good] = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "color-normal"))
+										{
+											status_color[Index.normal] = convert.toInt(values[1]);
+										}
+										
+										if(!String.compare(values[0], "list-danger"))
+										{
+											list_status[Index.danger] = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "list-warning"))
+										{
+											list_status[Index.warning] = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "list-regular"))
+										{
+											list_status[Index.regular] = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "list-good"))
+										{
+											list_status[Index.good] = convert.toBool(values[1]);
+										}
+										
+										if(!String.compare(values[0], "beep"))
+										{
+											beeping = convert.toBool(values[1]);
+										}
 									}
 								}
 							}
 						}
 					}
-				}
-				
-				using(f $as File.open(ipFile, File.Mode.read) $with File.close)
-				{
-					while(!File.end(f))
+					
+					using(f $as File.open(ipFile, File.Mode.read) $with File.close)
 					{
-						int i, lost = $Empty(int);
-						int status = 0;
-						double media = $Empty(double);
-						
-						string l = $Empty(string);
-						string ip = $Empty(string);
-						string name = $Empty(string);
-						
-						using(l $as read.nextLine(f) $with String.free)
+						while(!File.end(f))
 						{
-							string ARRAY values = NULL;
+							int i, lost = $Empty(int);
+							int status = 0;
+							double media = $Empty(double);
 							
-							using(values $as String.split(l, ": ") $with Array.free)
+							string l = $Empty(string);
+							string ip = $Empty(string);
+							string name = $Empty(string);
+							
+							using(l $as read.nextLine(f) $with String.free)
 							{
-								n++;
+								string ARRAY values = NULL;
 								
-								forindex(i $in values)
+								using(values $as String.split(l, ": ") $with Array.free)
 								{
-									if(!String.compare(values[i], "ip"))
-									{
-										ip = String.copy(values[i + 1]);
-									}
+									n++;
 									
-									if(!String.compare(values[i], "name"))
+									forindex(i $in values)
 									{
-										name = String.copy(values[i + 1]);
-									}
-									
-									String.free(values[i]);
-								}
-							}
-						
-							paint.text(status_color[Index.normal]);
-							screen.println(name, " (", ip, ")", $end);
-							
-							if(echoPing)
-							{
-								screen.textln("\tDisparo de pacotes:");
-							}
-							
-							for(i = 0; i < repeat; i++)
-							{
-								ping_t* ret = NULL;
-								
-								using(ret $as ping(ip, timeout) $with Memory.free)
-								{
-									if(echoPing)
-									{
-										paint.text(status_color[Index.normal]);
-										screen.print("\t", $i(i + 1), ": ", $end);
-									}
-									
-									if(ret)
-									{
-										if(ret->RoundTripTime < warning)
+										if(!String.compare(values[i], "ip"))
 										{
-											paint.text(status_color[Index.good]);
+											ip = String.copy(values[i + 1]);
+										}
+										
+										if(!String.compare(values[i], "name"))
+										{
+											name = String.copy(values[i + 1]);
+										}
+										
+										String.free(values[i]);
+									}
+								}
+							
+								paint.text(status_color[Index.normal]);
+								screen.println(name, " (", ip, ")", $end);
+								
+								if(echoPing)
+								{
+									screen.textln("\tDisparo de pacotes:");
+								}
+								
+								for(i = 0; i < repeat; i++)
+								{
+									ping_t* ret = NULL;
+									
+									using(ret $as ping(ip, timeout) $with Memory.free)
+									{
+										if(echoPing)
+										{
+											paint.text(status_color[Index.normal]);
+											screen.print("\t", $i(i + 1), ": ", $end);
+										}
+										
+										if(ret)
+										{
+											if(ret->RoundTripTime < warning)
+											{
+												paint.text(status_color[Index.good]);
+											}
+											else
+											{
+												paint.text(status_color[Index.regular]);
+											}
+											
+											if(echoPing)
+											{
+												screen.print(
+													$i(ret->RoundTripTime),
+													" ms",
+													$end
+												);
+											}
+											
+											media += ret->RoundTripTime;
 										}
 										else
 										{
-											paint.text(status_color[Index.regular]);
+											if(echoPing)
+											{
+												paint.text(status_color[Index.danger]);
+												screen.text("-");
+											}
+											lost++;
 										}
-										
-										if(echoPing)
-										{
-											screen.print(
-												$i(ret->RoundTripTime),
-												" ms",
-												$end
-											);
-										}
-										
-										media += ret->RoundTripTime;
-									}
-									else
-									{
-										if(echoPing)
-										{
-											paint.text(status_color[Index.danger]);
-											screen.text("-");
-										}
-										lost++;
 									}
 								}
 							}
-						}
-					
-						if(echoPing)
-						{
-							screen.nl();
-						}
 						
-						paint.text(status_color[Index.normal]);
-						
-						if(echoLost)
-						{
-							screen.text("\tPerdas de pacotes: ");
-							
-							if(lost == 0)
+							if(echoPing)
 							{
-								paint.text(status_color[Index.good]);
+								screen.nl();
+							}
+							
+							paint.text(status_color[Index.normal]);
+							
+							if(echoLost)
+							{
+								screen.text("\tPerdas de pacotes: ");
+								
+								if(lost == 0)
+								{
+									paint.text(status_color[Index.good]);
+								}
+								else if(lost < tolerance * repeat)
+								{
+									paint.text(status_color[Index.warning]);
+									beep(1);
+								}
+								else
+								{
+									paint.text(status_color[Index.danger]);
+									beep(3);
+								}
+								
+								screen.textln($i(lost));
+							}
+							
+							if(echoTime)
+							{
+								paint.text(status_color[Index.normal]);
+								screen.text("\tTempo médio de resposta: ");
+							}
+							
+							media /= repeat;
+							
+							if(!lost and media < warning)
+							{
+								status = Index.good;
+							}
+							else if(!lost)
+							{
+								status = Index.regular;
 							}
 							else if(lost < tolerance * repeat)
 							{
-								paint.text(status_color[Index.warning]);
-								beep(1);
+								status = Index.warning;
 							}
 							else
 							{
-								paint.text(status_color[Index.danger]);
-								beep(3);
+								status = Index.danger;
 							}
 							
-							screen.textln($i(lost));
-						}
-						
-						if(echoTime)
-						{
-							paint.text(status_color[Index.normal]);
-							screen.text("\tTempo médio de resposta: ");
-						}
-						
-						media /= repeat;
-						
-						if(media < warning)
-						{
-							paint.text(status_color[Index.good]);
-						}
-						else
-						{
-							paint.text(status_color[Index.regular]);
-						}
-						
-						if(echoTime)
-						{
-							screen.println($d(media), " ms", $end);
-						}
-						
-						if(!lost and media < warning)
-						{
-							status = Index.good;
-						}
-						else if(!lost)
-						{
-							status = Index.regular;
-						}
-						else if(lost < tolerance * repeat)
-						{
-							status = Index.warning;
-						}
-						else
-						{
-							status = Index.danger;
-						}
-						
-						if(status >= Index.warning)
-						{
-							netRespTime += media;
-							netPackLost += lost;
-							count++;
-						}
-						
-						$(List) -> add(list, new_IP_status(ip, name, status));
-						
-						if(echoStatus)
-						{
-							paint.text(status_color[Index.normal]);
-							screen.text("\tStatus: ");
-						}
-						
-						if(echoStatus)
-						{
-							paint.text(status_color[status]);
-							screen.textln(name_status_s[status]);
-						}
-						arr_status[status]++;
-						screen.nl();
-					}
-				}
-				
-				paint.text(status_color[Index.normal]);
-				screen.nl();
-				screen.textln("Classificação por status:");
-				screen.nl();
-				
-				for(i = (sizeof arr_status / sizeof(int) - 1); i >= 0; i--)
-				{
-					paint.text(status_color[i]);
-					screen.println("\t[", name_status_p[i], "]: ", $i(arr_status[i]), $end);
-				}
-				
-				for(i = (sizeof arr_status / sizeof(int) - 1); i >= 0; i--)
-				{
-					if(list_status[i])
-					{
-						pointer ARRAY array = NULL;
-						
-						paint.text(status_color[Index.normal]);
-						screen.nl();
-						screen.println("Hosts ", name_status_p[i], ": ", $end);
-						screen.nl();
-						paint.text(status_color[i]);
-						
-						using(array $as $(List)->toArray(list) $with Array.free)
-						{
-							IP_status* ip_s = $Empty(IP_status*);
-							
-							foreach(ip_s $in array)
+							if(media < warning)
 							{
-								if(ip_s->status == i)
+								paint.text(status_color[Index.good]);
+							}
+							else
+							{
+								paint.text(status_color[Index.regular]);
+							}
+							
+							if(echoTime)
+							{
+								if(status >= Index.warning)
 								{
-									screen.println("\t", ip_s->name, ": ", ip_s->ip, $end);
+									screen.println($d(media), " ms", $end);
+								}
+								else
+								{
+									paint.text(status_color[Index.danger]);
+									screen.textln("-");
 								}
 							}
 							
-							if(i == Index.danger and Array.length(array))
+							if(status >= Index.warning)
 							{
-								wait_beep(beeping);
+								netRespTime += media;
+								netPackLost += lost;
+								count++;
+							}
+							
+							$(list $as List).add(new_IP_status(ip, name, status));
+							
+							if(echoStatus)
+							{
+								paint.text(status_color[Index.normal]);
+								screen.text("\tStatus: ");
+							}
+							
+							if(echoStatus)
+							{
+								paint.text(status_color[status]);
+								screen.textln(name_status_s[status]);
+							}
+							arr_status[status]++;
+							screen.nl();
+						}
+					}
+					
+					paint.text(status_color[Index.normal]);
+					screen.nl();
+					screen.textln("Classificação por status:");
+					screen.nl();
+					
+					for(i = ARRAY_LENGTH(arr_status) - 1; i >= 0; i--)
+					{
+						paint.text(status_color[i]);
+						screen.println("\t[", name_status_p[i], "]: ", $i(arr_status[i]), $end);
+					}
+					
+					for(i = ARRAY_LENGTH(arr_status) - 1; i >= 0; i--)
+					{
+						if(list_status[i])
+						{
+							pointer ARRAY array = NULL;
+							
+							paint.text(status_color[Index.normal]);
+							screen.nl();
+							screen.println("Hosts ", name_status_p[i], ": ", $end);
+							write.print(log, "\rHosts ", name_status_p[i], $end);
+							screen.nl();
+							paint.text(status_color[i]);
+							
+							using(array $as $(list $as List).toArray() $with Array.free)
+							{
+								IP_status* ip_s = $Empty(IP_status*);
+								
+								foreach(ip_s $in array)
+								{
+									if(ip_s->status == i)
+									{
+										screen.println("\t", ip_s->name, ": ", ip_s->ip, $end);
+										write.println(log, ";", ip_s->name, ";", ip_s->ip, ";", $end);
+									}
+								}
+								
+								if(i == Index.danger and Array.length(array))
+								{
+									wait_beep(beeping);
+								}
 							}
 						}
 					}
@@ -493,7 +464,7 @@ static int Main(string ARRAY args)
 			screen.println($d(netRespTime), " milisegundos", $end);
 			
 			paint.text(status_color[Index.normal]);
-			screen.print("Perda de pacotes em hosts ", name_status_p[Index.warning], ": ", $end);
+			screen.text("Perda de pacotes em hosts ativos: ");
 			netLostProp = ((double)netPackLost / (double)(count * repeat)) * 100.0;
 			
 			if(netLostProp == 0)
@@ -532,6 +503,7 @@ static int Main(string ARRAY args)
 		catch(GenericException)
 		{
 			Exception e = getException();
+			paint.text(status_color[Index.danger]);
 			screen.printargln(Error(e), Message(e), $end);
 		}
 	}

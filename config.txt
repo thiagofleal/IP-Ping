@@ -1,9 +1,0 @@
-sleep:10
-timeout:1000
-repeat:5
-warning:3
-tolerance:25
-echo-ping:true
-echo-lost:true
-echo-time:true
-echo-status:true

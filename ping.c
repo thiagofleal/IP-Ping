@@ -1,5 +1,6 @@
+#include <Tonight\tonight.h>
+#include <Tonight\list.h>
 #include "ping.h"
-#include <icmpapi.h>
 
 ping_t* ping(string argv, unsigned int timeout)
 {
@@ -50,5 +51,53 @@ ping_t* ping(string argv, unsigned int timeout)
 	else
 	{
 		return NULL;
+	}
+}
+
+void beep(int number)
+{
+	Writer out = new Writer(Tonight.Std.Console.Output);
+	int i;
+	
+	for(i = 0; i < number; i++)
+	{
+		out.text("\a");
+		Tonight.sleep(500);
+	}
+}
+
+void wait_beep(bool active)
+{
+	if(active)
+	{
+		while(!Tonight.pressKey())
+		{
+			beep(3);
+			Tonight.sleep(1000);
+		}
+		
+		while(Tonight.pressKey())
+		{
+			Tonight.getKey();
+		}
+	}
+}
+
+IP_status* new_IP_status(string ip, string name, int status)
+{
+	IP_status* _new = Memory.alloc(sizeof(IP_status));
+	_new->ip = String.copy(ip);
+	_new->name = String.copy(name);
+	_new->status = status;
+	return _new;
+}
+
+void free_IP_status(IP_status* point)
+{
+	if(point)
+	{
+		String.free(point->ip);
+		String.free(point->name);
+		Memory.free(point);
 	}
 }
