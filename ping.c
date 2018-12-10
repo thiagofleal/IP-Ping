@@ -101,3 +101,15 @@ void free_IP_status(IP_status* point)
 		Memory.free(point);
 	}
 }
+
+void freeStringArray(pointer array)
+{
+	string s;
+	
+	foreach(s $in array)
+	{
+		String.free(s);
+	}
+	
+	Array.free(array);
+}

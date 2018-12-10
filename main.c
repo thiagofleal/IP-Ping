@@ -100,7 +100,7 @@ static int Main(string ARRAY args)
 							
 							using(l $as read.nextLine(f) $with String.free)
 							{
-								using(values $as String.split(l, ": ") $with Array.free)
+								using(values $as String.split(l, ": ") $with freeStringArray)
 								{
 									Conversor convert = $Empty(Conversor);
 									
@@ -222,7 +222,7 @@ static int Main(string ARRAY args)
 							{
 								string ARRAY values = NULL;
 								
-								using(values $as String.split(l, ": ") $with Array.free)
+								using(values $as String.split(l, ": ") $with freeStringArray)
 								{
 									n++;
 									
@@ -237,8 +237,6 @@ static int Main(string ARRAY args)
 										{
 											name = String.copy(values[i + 1]);
 										}
-										
-										String.free(values[i]);
 									}
 								}
 							

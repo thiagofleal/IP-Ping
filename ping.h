@@ -15,3 +15,4 @@ extern void wait_beep(bool active);
 extern IP_status* new_IP_status(string ip, string name, int status);
 extern void free_IP_status(IP_status* point);
 extern ping_t* ping(string, unsigned int);
+extern void freeStringArray(pointer array);
