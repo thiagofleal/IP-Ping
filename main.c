@@ -73,7 +73,7 @@ static int Main(string ARRAY args)
 				
 				using(log $as File.open(logFile, File.Mode.append) $with File.close)
 				{
-					write.println(
+					write.print(
 						log,
 						"Data:;",
 						$F("%02i/%02i/%i",
@@ -442,63 +442,61 @@ static int Main(string ARRAY args)
 							}
 						}
 					}
+					
+					screen.nl();
+					
+					netRespTime /= count;
+					paint.text(status_color[Index.normal]);
+					screen.text("Tempo médio de resposta da rede: ");
+					
+					if(netRespTime < warning)
+					{
+						paint.text(status_color[Index.good]);
+					}
+					else
+					{
+						paint.text(status_color[Index.regular]);
+						beep(1);
+					}
+					
+					screen.println($d(netRespTime), " milisegundos", $end);
+					write.println(log, "Tempo médio de resposta (ms):;", $d(netRespTime), ";", $end);
+					
+					paint.text(status_color[Index.normal]);
+					screen.text("Perda de pacotes em hosts ativos: ");
+					netLostProp = ((double)netPackLost / (double)(count * repeat)) * 100.0;
+					
+					if(netLostProp == 0)
+					{
+						paint.text(status_color[Index.good]);
+					}
+					else if(netLostProp < (1 - tolerance) * 100)
+					{
+						paint.text(status_color[Index.warning]);
+					}
+					else
+					{
+						int i;
+						paint.text(status_color[Index.danger]);
+						
+						for(i = 0; i < 3; i++)
+						{
+							beep(3);
+							Tonight.sleep(1000);
+						}
+					}
+					
+					screen.println(
+						$i(netPackLost),
+						"/",
+						$i(count * repeat),
+						" (",
+						$d(netLostProp),
+						"%)",
+						$end
+					);
 				}
 			}
-			
-			screen.nl();
-			
-			netRespTime /= count;
-			paint.text(status_color[Index.normal]);
-			screen.text("Tempo médio de resposta da rede: ");
-			
-			if(netRespTime < warning)
-			{
-				paint.text(status_color[Index.good]);
-			}
-			else
-			{
-				paint.text(status_color[Index.regular]);
-				beep(1);
-			}
-			
-			screen.println($d(netRespTime), " milisegundos", $end);
-			
-			paint.text(status_color[Index.normal]);
-			screen.text("Perda de pacotes em hosts ativos: ");
-			netLostProp = ((double)netPackLost / (double)(count * repeat)) * 100.0;
-			
-			if(netLostProp == 0)
-			{
-				paint.text(status_color[Index.good]);
-			}
-			else if(netLostProp < (1 - tolerance) * 100)
-			{
-				paint.text(status_color[Index.warning]);
-			}
-			else
-			{
-				int i;
-				paint.text(status_color[Index.danger]);
-				
-				for(i = 0; i < 3; i++)
-				{
-					beep(3);
-					Tonight.sleep(1000);
-				}
-			}
-			
-			screen.println(
-				$i(netPackLost),
-				"/",
-				$i(count * repeat),
-				" (",
-				$d(netLostProp),
-				"%)",
-				$end
-			);
-			
-			Tonight.sleep(sleep * 1000);
-			Tonight.clearScreen();
 		}
 		catch(GenericException)
 		{
@@ -506,6 +504,9 @@ static int Main(string ARRAY args)
 			paint.text(status_color[Index.danger]);
 			screen.printargln(Error(e), Message(e), $end);
 		}
+		
+		Tonight.sleep(sleep * 1000);
+		Tonight.clearScreen();
 	}
 	
 	return Exit.Success;
