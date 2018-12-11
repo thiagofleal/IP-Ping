@@ -537,80 +537,80 @@ static int Main(string ARRAY args)
 								"%)",
 								$end
 							);
-						}
-						
-						using(arr $as $(queue $as List).toArray() $with Array.free)
-						{
-							int fall = 0, i;
-							int color;
-							double last = 0;
-							double *pd = NULL;
-							string status = $Empty(string);
 							
-							screen.nl();
-							paint.text(status_color[Index.normal]);
-							screen.textln("Médias anteriores:");
-							screen.nl();
-							
-							foreach(pd $in arr)
+							using(arr $as $(queue $as List).toArray() $with Array.free)
 							{
-								if(*pd < warning)
+								int fall = 0, i;
+								int color;
+								double last = 0;
+								double *pd = NULL;
+								string status = $Empty(string);
+								
+								screen.nl();
+								paint.text(status_color[Index.normal]);
+								screen.textln("Médias anteriores:");
+								screen.nl();
+								
+								foreach(pd $in arr)
 								{
-									paint.text(color = status_color[Index.good]);
+									if(*pd < warning)
+									{
+										paint.text(color = status_color[Index.good]);
+									}
+									else if(*pd < danger)
+									{
+										paint.text(color = status_color[Index.regular]);
+									}
+									else
+									{
+										paint.text(color = status_color[Index.danger]);
+									}
+									
+									if(last and *pd > last)
+									{
+										++ fall;
+									}
+									else if(*pd < last)
+									{
+										fall = 0;
+									}
+									
+									last = *pd;
+									screen.print("\t", $dpf(pd, 3), " ms\t", $end);
+									paint.both(bgcolor, color);
+									
+									for(i = 0; i <= *pd * 3; i++)
+									{
+										screen.text("-");
+									}
+									
+									paint.background(bgcolor);
+									screen.nl();
 								}
-								else if(*pd < danger)
+								
+								screen.nl();
+								paint.text(status_color[Index.normal]);
+								screen.text("Análise de histórico de desempenho: ");
+								
+								if(fall < fallWarning)
 								{
-									paint.text(color = status_color[Index.regular]);
+									paint.text(status_color[Index.good]);
+									status = "Estável";
+								}
+								else if(fall < fallDanger)
+								{
+									paint.text(status_color[Index.regular]);
+									status = "Regular";
 								}
 								else
 								{
-									paint.text(color = status_color[Index.danger]);
+									paint.text(status_color[Index.danger]);
+									status = "Instável";
 								}
 								
-								if(last and *pd > last)
-								{
-									++ fall;
-								}
-								else if(*pd < last)
-								{
-									fall = 0;
-								}
-								
-								last = *pd;
-								screen.print("\t", $dpf(pd, 3), " ms\t", $end);
-								paint.both(bgcolor, color);
-								
-								for(i = 0; i <= *pd * 3; i++)
-								{
-									screen.text("-");
-								}
-								
-								paint.background(bgcolor);
-								screen.nl();
+								screen.textln(status);
+								write.println(log, "Status da rede:;", status, $end);
 							}
-							
-							screen.nl();
-							paint.text(status_color[Index.normal]);
-							screen.text("Análise de histórico de desempenho: ");
-							
-							if(fall < fallWarning)
-							{
-								paint.text(status_color[Index.good]);
-								status = "Estável";
-							}
-							else if(fall < fallDanger)
-							{
-								paint.text(status_color[Index.regular]);
-								status = "Regular";
-							}
-							else
-							{
-								paint.text(status_color[Index.danger]);
-								status = "Instável";
-							}
-							
-							screen.textln(status);
-							write.println(log, "Status da rede:;", status, $end);
 						}
 					}
 				}
