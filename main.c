@@ -24,7 +24,6 @@ static int Main(string ARRAY args)
 	string configFile = "config.txt";
 	string logFile = "log.csv";
 	
-	int size = 3;
 	object queue = $Empty(object);
 	
 	Tonight.Locale.setName("");
@@ -38,6 +37,9 @@ static int Main(string ARRAY args)
 			{
 				int sleep = 10;
 				int repeat = 5;
+				int size = 5;
+				int fallWarning = 3;
+				int fallDanger = 5;
 				int n = 0, i;
 				int count = 0;
 				
@@ -55,9 +57,11 @@ static int Main(string ARRAY args)
 				string name_status_p[] = {"inativos", "instáveis", "regulares", "bons"};
 				
 				int timeout = 1000;
-				int warning = 500;
+				int warning = 5;
+				int danger = 10;
 				double tolerance = 0.5;
 				
+				int bgcolor = 0;
 				int netPackLost = $Empty(int);
 				double netRespTime = $Empty(double);
 				double netLostProp = $Empty(double);
@@ -66,6 +70,8 @@ static int Main(string ARRAY args)
 				{
 					object list = NULL;
 					pointer ARRAY arr = NULL;
+					
+					paint.background(bgcolor);
 					
 					using(list $as new Object(List.class) $with delete)
 					{
@@ -125,9 +131,14 @@ static int Main(string ARRAY args)
 													repeat = convert.toInt(values[1]);
 												}
 												
-												if(!String.compare(values[0], "warning"))
+												if(!String.compare(values[0], "time-warning"))
 												{
 													warning = convert.toInt(values[1]);
+												}
+												
+												if(!String.compare(values[0], "time-danger"))
+												{
+													danger = convert.toInt(values[1]);
 												}
 												
 												if(!String.compare(values[0], "tolerance"))
@@ -204,6 +215,21 @@ static int Main(string ARRAY args)
 												{
 													beeping = convert.toBool(values[1]);
 												}
+												
+												if(!String.compare(values[0], "buffer-size"))
+												{
+													size = convert.toInt(values[1]);
+												}
+												
+												if(!String.compare(values[0], "fall-warning"))
+												{
+													fallWarning = convert.toInt(values[1]);
+												}
+												
+												if(!String.compare(values[0], "fall-danger"))
+												{
+													fallDanger = convert.toInt(values[1]);
+												}
 											}
 										}
 									}
@@ -270,9 +296,13 @@ static int Main(string ARRAY args)
 													{
 														paint.text(status_color[Index.good]);
 													}
-													else
+													else if(ret->RoundTripTime < danger)
 													{
 														paint.text(status_color[Index.regular]);
+													}
+													else
+													{
+														paint.text(status_color[Index.danger]);
 													}
 													
 													if(echoPing)
@@ -298,7 +328,7 @@ static int Main(string ARRAY args)
 											}
 										}
 									}
-								
+									
 									if(echoPing)
 									{
 										screen.nl();
@@ -357,9 +387,13 @@ static int Main(string ARRAY args)
 									{
 										paint.text(status_color[Index.good]);
 									}
-									else
+									else if(media < danger)
 									{
 										paint.text(status_color[Index.regular]);
+									}
+									else
+									{
+										paint.text(status_color[Index.danger]);
 									}
 									
 									if(echoTime)
@@ -465,7 +499,7 @@ static int Main(string ARRAY args)
 							write.println(log, "Tempo médio de resposta (ms):;", $d(netRespTime), ";", $end);
 							$(queue $as List).add(new Double(netRespTime));
 							
-							if($(queue $as List).size() > size)
+							while($(queue $as List).size() > size)
 							{
 								$(queue $as List).remove(0);
 							}
@@ -504,27 +538,79 @@ static int Main(string ARRAY args)
 								$end
 							);
 						}
-					}
-					
-					using(arr $as $(queue $as List).toArray() $with Array.free)
-					{
-						double *pd = NULL;
 						
-						screen.nl();
-						paint.text(status_color[Index.normal]);
-						screen.textln("Médias anteriores:");
-						
-						foreach(pd $in arr)
+						using(arr $as $(queue $as List).toArray() $with Array.free)
 						{
-							if(*pd < warning)
+							int fall = 0, i;
+							int color;
+							double last = 0;
+							double *pd = NULL;
+							string status = $Empty(string);
+							
+							screen.nl();
+							paint.text(status_color[Index.normal]);
+							screen.textln("Médias anteriores:");
+							screen.nl();
+							
+							foreach(pd $in arr)
+							{
+								if(*pd < warning)
+								{
+									paint.text(color = status_color[Index.good]);
+								}
+								else if(*pd < danger)
+								{
+									paint.text(color = status_color[Index.regular]);
+								}
+								else
+								{
+									paint.text(color = status_color[Index.danger]);
+								}
+								
+								if(last and *pd > last)
+								{
+									++ fall;
+								}
+								else if(*pd < last)
+								{
+									fall = 0;
+								}
+								
+								last = *pd;
+								screen.print("\t", $dpf(pd, 3), " ms\t", $end);
+								paint.both(bgcolor, color);
+								
+								for(i = 0; i <= *pd * 3; i++)
+								{
+									screen.text("-");
+								}
+								
+								paint.background(bgcolor);
+								screen.nl();
+							}
+							
+							screen.nl();
+							paint.text(status_color[Index.normal]);
+							screen.text("Análise de histórico de desempenho: ");
+							
+							if(fall < fallWarning)
 							{
 								paint.text(status_color[Index.good]);
+								status = "Estável";
+							}
+							else if(fall < fallDanger)
+							{
+								paint.text(status_color[Index.regular]);
+								status = "Regular";
 							}
 							else
 							{
-								paint.text(status_color[Index.regular]);
+								paint.text(status_color[Index.danger]);
+								status = "Instável";
 							}
-							screen.println("\t", $dp(pd), " ms", $end);
+							
+							screen.textln(status);
+							write.println(log, "Status da rede:;", status, $end);
 						}
 					}
 				}
