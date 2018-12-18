@@ -1,0 +1,6 @@
+*.win
+*.exe
+*.layout
+*.dev
+x32
+x64

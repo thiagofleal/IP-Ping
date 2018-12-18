@@ -20,9 +20,9 @@ static int Main(string ARRAY args)
 	Painter paint = new Painter(Tonight.Resources.Color);
 	Timer now = new Timer(Tonight.Std.TimeNow);
 	
-	string ipFile = "ping.txt";
-	string configFile = "config.txt";
-	string logFile = "log.csv";
+	string ipFile = "../config/ping.txt";
+	string configFile = "../config/config.txt";
+	string logFile = "../log.csv";
 	
 	object queue = $Empty(object);
 	
@@ -33,6 +33,8 @@ static int Main(string ARRAY args)
 	{
 		using(queue $as new Object(List.class) $with delete)
 		{
+			$(queue $as List).setFreeCallBack(Memory.free);
+			
 			while(true)
 			{
 				int sleep = 10;
